@@ -408,27 +408,38 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('pvc-difficulty-tie').textContent = scores.pvc[computerDifficulty].tie;
     }
 
-    function resetGame() {
-        if (isOnline && gameActive) {
-            // In online mode, reset is handled by server or new game
-            // For now, simple reset if game over
-            // socket.emit('restart_request', roomCode); 
-            // (Simpler: just clear board locally if game over, but better to wait for server)
-        }
+    socket.on('game_restarted', () => {
+        resetLocalBoard();
+        updateStatus(myPlayerSymbol === 'X' ? "Your Turn (X)" : "Opponent's Turn (X)");
+        alert("Game Restarted!");
+    });
 
+    // ... existing code ...
+
+    function resetGame() {
+        if (isOnline) {
+            if (roomCode) {
+                socket.emit('restart_request', roomCode);
+            }
+            return;
+        }
+        resetLocalBoard();
+    }
+
+    function resetLocalBoard() {
         board = ['', '', '', '', '', '', '', '', ''];
         currentPlayer = 'X';
         gameActive = true;
         moveHistory = [];
 
-        if (isOnline) {
-            // Status handled by socket events
-        } else if (gameMode === 'pvc' && currentPlayer === 'X') {
-            updateStatus(`Player ${currentPlayer}'s Turn`);
-        } else if (gameMode === 'pvc' && currentPlayer === 'O') {
-            updateStatus("Computer's Turn...");
-            setTimeout(makeComputerMove, 800);
-        } else {
+        if (gameMode === 'pvc') {
+            if (currentPlayer === 'X') {
+                updateStatus(`Player ${currentPlayer}'s Turn`);
+            } else {
+                updateStatus("Computer's Turn...");
+                setTimeout(makeComputerMove, 800);
+            }
+        } else if (gameMode === 'pvp') {
             updateStatus(`Player ${currentPlayer}'s Turn`);
         }
 
