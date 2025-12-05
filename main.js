@@ -84,8 +84,8 @@ function setupEventListeners() {
             btn.classList.add('active');
             gridSize = parseInt(btn.dataset.size);
 
-            // Only reset game if we are offline. In lobby, we just update the variable.
-            if (!isOnline) resetGame();
+            // Only reset game if we are offline OR if we are in the lobby (no room code yet).
+            if (!isOnline || !roomCode) resetGame();
         });
     });
 
