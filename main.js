@@ -32,6 +32,7 @@ const socket = io();
 let roomCode = null;
 let myPlayerSymbol = null; // 'X' or 'O'
 let isOnline = false;
+let onlineScores = { me: 0, opponent: 0, tie: 0 };
 
 const winConditions = [
     [0, 1, 2], [3, 4, 5], [6, 7, 8],
@@ -83,6 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('difficulty-section').classList.add('hidden');
         document.getElementById('pvp-scores').classList.add('hidden');
         document.getElementById('pvc-difficulty-score').classList.add('hidden');
+        document.getElementById('online-scores').classList.add('hidden');
         document.getElementById('online-lobby').classList.add('hidden');
 
         if (mode === 'pvp') {
@@ -132,8 +134,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!myPlayerSymbol) myPlayerSymbol = 'O';
 
         document.getElementById('online-lobby').classList.add('hidden');
+        document.getElementById('online-scores').classList.remove('hidden');
         document.getElementById('lobby-status').textContent = "";
         resetGame(); // Clear board
+        updateScoreDisplay(); // Show initial 0-0
         updateStatus(myPlayerSymbol === 'X' ? "Your Turn (X)" : "Opponent's Turn (X)");
         alert(`Game Started! You are Player ${myPlayerSymbol}`);
     });
@@ -263,7 +267,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 else scores.pvc[computerDifficulty][winner.toLowerCase()]++;
             }
         }
-        if (!isOnline) {
+
+        if (isOnline) {
+            if (winner === 'tie') {
+                onlineScores.tie++;
+            } else if (winner === myPlayerSymbol) {
+                onlineScores.me++;
+            } else {
+                onlineScores.opponent++;
+            }
+            updateScoreDisplay();
+        } else {
             saveScores();
             updateScoreDisplay();
         }
@@ -406,6 +420,11 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('pvc-difficulty-x').textContent = scores.pvc[computerDifficulty].x;
         document.getElementById('pvc-difficulty-o').textContent = scores.pvc[computerDifficulty].o;
         document.getElementById('pvc-difficulty-tie').textContent = scores.pvc[computerDifficulty].tie;
+
+        // Online Scores
+        document.getElementById('online-me-score').textContent = onlineScores.me;
+        document.getElementById('online-opp-score').textContent = onlineScores.opponent;
+        document.getElementById('online-tie-score').textContent = onlineScores.tie;
     }
 
     socket.on('game_restarted', () => {
@@ -414,7 +433,7 @@ document.addEventListener('DOMContentLoaded', () => {
         alert("Game Restarted!");
     });
 
-    // ... existing code ...
+
 
     function resetGame() {
         if (isOnline) {
