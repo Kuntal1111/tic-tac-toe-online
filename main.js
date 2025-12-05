@@ -77,11 +77,15 @@ function setupEventListeners() {
     // Grid Size Switching
     gridSizeBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-            if (isOnline) return; // Cant change size mid-online session easily
+            // Allow changing size if not online OR if online but not yet in a room (lobby)
+            if (isOnline && roomCode) return;
+
             gridSizeBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             gridSize = parseInt(btn.dataset.size);
-            resetGame();
+
+            // Only reset game if we are offline. In lobby, we just update the variable.
+            if (!isOnline) resetGame();
         });
     });
 

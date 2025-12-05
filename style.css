@@ -112,11 +112,11 @@ h1 {
     display: grid;
     grid-template-columns: repeat(var(--grid-size, 3), 1fr);
     grid-template-rows: repeat(var(--grid-size, 3), 1fr);
-    gap: 10px;
-    /* Slightly larger gap */
-    margin: 20px auto;
-    background: #764ba2;
-    padding: 10px;
+    /* Dynamic scaling for larger grids */
+    --gap-size: calc(10px - (var(--grid-size, 3) - 3) * 2px);
+    gap: var(--gap-size);
+    /* Slightly less padding for large grids to maximize cell size */
+    padding: calc(10px - (var(--grid-size, 3) - 3) * 2px);
     border-radius: 20px;
     width: 100%;
     max-width: 350px;
@@ -129,7 +129,7 @@ h1 {
     /* font-size is no longer needed, SVG will control size */
     cursor: pointer;
     transition: all 0.3s ease;
-    border-radius: 15px;
+    border-radius: calc(15px - (var(--grid-size, 3) - 3) * 3px);
     /* Softer radius */
     color: #333;
     display: flex;
