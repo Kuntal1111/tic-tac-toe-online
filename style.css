@@ -115,6 +115,9 @@ h1 {
     /* Dynamic scaling for larger grids */
     --gap-size: calc(10px - (var(--grid-size, 3) - 3) * 2px);
     gap: var(--gap-size);
+    /* Restore background and margin */
+    margin: 20px auto;
+    background: #764ba2;
     /* Slightly less padding for large grids to maximize cell size */
     padding: calc(10px - (var(--grid-size, 3) - 3) * 2px);
     border-radius: 20px;
