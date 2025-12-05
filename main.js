@@ -123,6 +123,9 @@ function setGameMode(mode) {
         document.getElementById('online-lobby').classList.remove('hidden');
         document.getElementById('online-scores').classList.add('hidden');
         lobbyStatus.textContent = "";
+        // FIX: Clear room context so user can select grid size or join new room
+        roomCode = null;
+        myPlayerSymbol = null;
     }
 
     resetGame();
@@ -389,6 +392,7 @@ function resetGame() {
 }
 
 function highlightWin(player) {
+    // ... highlight logic ...
     const size = gridSize;
     // Re-check to find winning line for highlight
     // Rows
