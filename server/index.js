@@ -69,6 +69,15 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('restart_request', (roomCode) => {
+        const room = rooms[roomCode];
+        if (room) {
+            room.board = Array(9).fill('');
+            room.turn = 'X';
+            io.to(roomCode).emit('game_restarted');
+        }
+    });
+
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
         for (const code in rooms) {
