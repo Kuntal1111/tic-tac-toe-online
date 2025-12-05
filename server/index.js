@@ -32,6 +32,7 @@ io.on('connection', (socket) => {
         const roomCode = generateRoomCode();
         rooms[roomCode] = {
             players: [socket.id],
+            playerMap: { [socket.id]: 'X' }, // Map socket to symbol
             board: Array(9).fill(''),
             turn: 'X'
         };
@@ -44,6 +45,7 @@ io.on('connection', (socket) => {
         const room = rooms[roomCode];
         if (room && room.players.length < 2) {
             room.players.push(socket.id);
+            room.playerMap[socket.id] = 'O'; // Assign O to joiner
             socket.join(roomCode);
             io.to(roomCode).emit('game_start', {
                 roomCode,
@@ -57,7 +59,12 @@ io.on('connection', (socket) => {
 
     socket.on('make_move', ({ roomCode, index, player }) => {
         const room = rooms[roomCode];
-        if (room && room.turn === player && room.board[index] === '') {
+        // Validate room, turn, cell vacancy AND that the socket matches the player role
+        if (room &&
+            room.turn === player &&
+            room.board[index] === '' &&
+            room.playerMap[socket.id] === player // Security Check
+        ) {
             room.board[index] = player;
             room.turn = player === 'X' ? 'O' : 'X';
 
@@ -95,7 +102,7 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
