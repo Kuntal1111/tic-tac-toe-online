@@ -136,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('online-lobby').classList.add('hidden');
         document.getElementById('online-scores').classList.remove('hidden');
         document.getElementById('lobby-status').textContent = "";
-        resetGame(); // Clear board
+        resetLocalBoard(); // Clear board locally
         updateScoreDisplay(); // Show initial 0-0
         updateStatus(myPlayerSymbol === 'X' ? "Your Turn (X)" : "Opponent's Turn (X)");
         alert(`Game Started! You are Player ${myPlayerSymbol}`);
