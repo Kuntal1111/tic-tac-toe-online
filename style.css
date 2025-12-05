@@ -117,6 +117,10 @@ h1 {
     margin: 20px auto;
     background: #764ba2;
     padding: 10px;
+    border-radius: 20px;
+    width: 100%;
+    max-width: 350px;
+    aspect-ratio: 1;
 }
 
 .cell {
