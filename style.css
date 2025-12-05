@@ -1,0 +1,384 @@
+:root {
+    font-family: 'Nunito', sans-serif;
+    line-height: 1.5;
+    font-weight: 400;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    /* Using the new playful font */
+    font-family: 'Nunito', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 10px;
+    overflow-x: hidden;
+}
+
+.container {
+    text-align: center;
+    background: white;
+    padding: 20px;
+    /* Increased border-radius for a softer look */
+    border-radius: 25px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    width: 100%;
+    max-width: 450px;
+    margin: 0 auto;
+}
+
+h1 {
+    color: #333;
+    margin-bottom: 10px;
+    font-size: clamp(1.5em, 5vw, 2.5em);
+    /* Bolder font weight */
+    font-weight: 900;
+}
+
+.mode-selector {
+    margin: 15px auto;
+    padding: 12px;
+    background: #f5f5f5;
+    border-radius: 15px;
+    /* Softer radius */
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.mode-btn {
+    background: #e0e0e0;
+    border: 2px solid #ccc;
+    padding: 10px 20px;
+    border-radius: 30px;
+    cursor: pointer;
+    font-weight: 700;
+    /* Bolder */
+    transition: all 0.3s ease;
+    font-size: clamp(0.9em, 3vw, 1.1em);
+    flex: 1;
+    min-width: 120px;
+}
+
+.mode-btn.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: #667eea;
+    transform: scale(1.05);
+    /* Add a little pop when active */
+}
+
+.status {
+    font-size: clamp(1.1em, 4vw, 1.5em);
+    /* Slightly larger */
+    margin: 15px auto;
+    min-height: 35px;
+    color: #555;
+    font-weight: 700;
+    /* Bolder */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Animation for when status text changes */
+.status-change {
+    animation: status-pop 0.3s ease-out;
+}
+
+@keyframes status-pop {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.1);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+.board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 10px;
+    /* Slightly larger gap */
+    margin: 20px auto;
+    background: #764ba2;
+    padding: 10px;
+    /* Slightly larger padding */
+    border-radius: 20px;
+    /* Softer radius */
+    width: 100%;
+    max-width: 350px;
+    aspect-ratio: 1;
+}
+
+.cell {
+    background: white;
+    border: none;
+    /* font-size is no longer needed, SVG will control size */
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-radius: 15px;
+    /* Softer radius */
+    color: #333;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    /* Remove default button padding/margin */
+    padding: 0;
+}
+
+/* Style for the SVG markers */
+/* Style for the SVG markers */
+.cell svg {
+    width: 70%;
+    height: 70%;
+    stroke-width: 10;
+    stroke-linecap: round;
+    fill: none;
+    /* No transition on the SVG itself, we animate children */
+}
+
+.cell.x svg line {
+    stroke: #667eea;
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    animation: draw 0.4s forwards ease-out;
+}
+
+.cell.o svg circle {
+    stroke: #764ba2;
+    stroke-dasharray: 200;
+    stroke-dashoffset: 200;
+    animation: draw 0.4s forwards ease-out;
+}
+
+@keyframes draw {
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+.cell:hover:not(.taken) {
+    background: #f8f9fa;
+    transform: scale(1.02);
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.05);
+}
+
+.cell.taken {
+    cursor: not-allowed;
+}
+
+/* Animation for shaking a taken cell */
+.shake {
+    animation: shake 0.4s cubic-bezier(.36, .07, .19, .97) both;
+}
+
+@keyframes shake {
+
+    10%,
+    90% {
+        transform: translate3d(-1px, 0, 0);
+    }
+
+    20%,
+    80% {
+        transform: translate3d(2px, 0, 0);
+    }
+
+    30%,
+    50%,
+    70% {
+        transform: translate3d(-4px, 0, 0);
+    }
+
+    40%,
+    60% {
+        transform: translate3d(4px, 0, 0);
+    }
+}
+
+.cell.x,
+.cell.o {
+    /* The pop is now handled by the SVG drawing, but we keep a subtle scale */
+    animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes pop {
+    0% {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.winner {
+    background: #fff9c4 !important;
+    /* Softer yellow */
+    animation: winner-pulse 1s ease infinite;
+}
+
+@keyframes winner-pulse {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7);
+    }
+
+    70% {
+        transform: scale(1.05);
+        box-shadow: 0 0 0 10px rgba(255, 215, 0, 0);
+    }
+
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(255, 215, 0, 0);
+    }
+}
+
+/* Active states for buttons */
+.mode-btn:active,
+.difficulty-btn:active,
+.reset-btn:active {
+    transform: scale(0.95);
+}
+
+.reset-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 12px 35px;
+    font-size: clamp(1em, 3.5vw, 1.2em);
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 700;
+    /* Bolder */
+    margin: 15px auto;
+    display: block;
+}
+
+.reset-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+}
+
+.score-board {
+    display: flex;
+    justify-content: center;
+    margin: 15px auto;
+    gap: 10px;
+    width: 100%;
+}
+
+.score {
+    background: #f5f5f5;
+    padding: 12px 15px;
+    border-radius: 15px;
+    /* Softer radius */
+    font-size: clamp(0.9em, 3vw, 1.2em);
+    flex: 1;
+    max-width: 100%;
+}
+
+.score-title {
+    font-weight: 700;
+    /* Bolder */
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.score-values {
+    display: flex;
+    justify-content: space-around;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.score-value {
+    font-weight: 700;
+    /* Bolder */
+    color: #667eea;
+}
+
+.difficulty {
+    margin: 12px auto;
+    padding: 10px;
+    background: #f5f5f5;
+    border-radius: 15px;
+    /* Softer radius */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-weight: 700;
+    /* Bolder */
+}
+
+.difficulty-btn {
+    background: #e0e0e0;
+    border: 2px solid #ccc;
+    padding: 8px 15px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: clamp(0.8em, 2.5vw, 0.9em);
+    transition: all 0.3s ease;
+    font-weight: 700;
+    /* Bolder */
+}
+
+.difficulty-btn.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: #667eea;
+}
+
+@media (max-width: 400px) {
+    .container {
+        padding: 15px;
+    }
+
+    .board {
+        max-width: 300px;
+    }
+}
+/* Smooth transition classes */
+.transition-section {
+    transition: all 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+    opacity: 1;
+    max-height: 150px;
+    overflow: hidden;
+    transform: translateY(0);
+    visibility: visible;
+}
+
+.transition-section.hidden {
+    opacity: 0;
+    max-height: 0;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    transform: translateY(-10px);
+    visibility: hidden;
+}
+

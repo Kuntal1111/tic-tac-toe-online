@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tic-Tac-Toe</title>
+    <!-- Import a playful, rounded font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <h1>🎮 Tic-Tac-Toe</h1>
+
+        <div class="mode-selector">
+            <button class="mode-btn active" id="pvp-mode">👨 vs 👨</button>
+            <button class="mode-btn" id="pvc-mode">👨 vs 💻</button>
+            <button class="mode-btn" id="online-mode">🌍 Online</button>
+        </div>
+
+        <div class="difficulty transition-section hidden" id="difficulty-section">
+            <span>Difficulty:</span>
+            <button class="difficulty-btn" id="easy">Easy</button>
+            <button class="difficulty-btn active" id="medium">Medium</button>
+            <button class="difficulty-btn" id="hard">Hard</button>
+        </div>
+
+        <!-- Online Lobby Section -->
+        <div class="difficulty transition-section hidden" id="online-lobby">
+            <div style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
+                <button class="difficulty-btn" id="create-room-btn"
+                    style="background: #667eea; color: white; padding: 12px;">Create Room</button>
+                <div style="display: flex; gap: 5px;">
+                    <input type="text" id="room-code-input" placeholder="Enter Code"
+                        style="padding: 10px; border-radius: 10px; border: 1px solid #ccc; flex: 1; text-transform: uppercase;">
+                    <button class="difficulty-btn" id="join-room-btn">Join</button>
+                </div>
+                <div id="lobby-status" style="font-size: 0.9em; color: #666; min-height: 20px;"></div>
+            </div>
+        </div>
+
+        <div class="status" id="status">Player X's Turn</div>
+
+        <div class="score-board transition-section" id="pvp-scores">
+            <div class="score">
+                <div class="score-title">PvP Scores</div>
+                <div class="score-values">
+                    <div>X: <span class="score-value" id="pvp-x-score">0</span></div>
+                    <div>O: <span class="score-value" id="pvp-o-score">0</span></div>
+                    <div>Ties: <span class="score-value" id="pvp-tie-score">0</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="score-board transition-section hidden" id="pvc-difficulty-score">
+            <div class="score">
+                <div class="score-title" id="difficulty-title">Medium</div>
+                <div class="score-values">
+                    <div>👨: <span class="score-value" id="pvc-difficulty-x">0</span></div>
+                    <div>💻: <span class="score-value" id="pvc-difficulty-o">0</span></div>
+                    <div>Ties: <span class="score-value" id="pvc-difficulty-tie">0</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="board" id="board">
+            <button class="cell" data-index="0"></button>
+            <button class="cell" data-index="1"></button>
+            <button class="cell" data-index="2"></button>
+            <button class="cell" data-index="3"></button>
+            <button class="cell" data-index="4"></button>
+            <button class="cell" data-index="5"></button>
+            <button class="cell" data-index="6"></button>
+            <button class="cell" data-index="7"></button>
+            <button class="cell" data-index="8"></button>
+        </div>
+
+        <button class="reset-btn" onclick="resetGame()">New Game</button>
+    </div>
+
+    <script type="module" src="/main.js"></script>
+</body>
+
+</html>
