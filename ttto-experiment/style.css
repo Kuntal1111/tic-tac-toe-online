@@ -1,0 +1,75 @@
+:root {
+    --grid-size: 3;
+}
+
+body {
+    font-family: 'Nunito', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #f0f2f5;
+    min-height: 100vh;
+}
+
+.controls {
+    margin: 20px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.board {
+    display: grid;
+    grid-template-columns: repeat(var(--grid-size), 1fr);
+    gap: 10px;
+    background: white;
+    padding: 15px;
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    max-width: 90vw;
+    width: 400px;
+    height: 400px;
+    /* Keep exact square */
+}
+
+.cell {
+    background: #f8f9fa;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(1rem, calc(200px / var(--grid-size)), 3rem);
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+    user-select: none;
+    aspect-ratio: 1;
+    /* Force square cells */
+}
+
+.cell:hover {
+    background: #e9ecef;
+}
+
+.cell.x {
+    color: #ff6b6b;
+}
+
+.cell.o {
+    color: #4ecdc4;
+}
+
+button,
+select {
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+button {
+    background: #667eea;
+    color: white;
+    border: none;
+}

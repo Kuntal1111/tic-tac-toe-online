@@ -1,474 +1,434 @@
 import './style.css'
 import { io } from "socket.io-client";
 
-// --- NEW SVG MARKERS ---
-// Playful, hand-drawn style 'X'
-const X_SVG = `<svg viewBox="0 0 100 100"><line x1="20" y1="20" x2="80" y2="80"></line><line x1="80" y1="20" x2="20" y2="80"></line></svg>`;
-// Playful, hand-drawn style 'O' (a circle)
-const O_SVG = `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="30"></circle></svg>`;
+// --- Game State ---
+let board = [];
+let currentPlayer = 'X'; // 'X' or 'O'
+let gameActive = true;
+let gameMode = 'pvp'; // 'pvp', 'pvc', 'online'
+let difficulty = 'medium'; // 'easy', 'medium', 'hard'
+let gridSize = 3; // 3, 4, 5
 
+// --- Online State ---
+const SERVER_URL = 'https://tic-tac-toe-online-m0ju.onrender.com';
+const socket = io(SERVER_URL);
+let roomCode = null;
+let myPlayerSymbol = null; // 'X' or 'O'
+let isOnline = false;
+
+// --- Scores ---
 let scores = JSON.parse(localStorage.getItem('ttto_scores')) || {
-    pvp: { x: 0, o: 0, tie: 0 },
+    pvp: { x: 0, o: 0, ties: 0 },
     pvc: {
-        easy: { x: 0, o: 0, tie: 0 },
-        medium: { x: 0, o: 0, tie: 0 },
-        hard: { x: 0, o: 0, tie: 0 }
-    }
+        easy: { x: 0, o: 0, ties: 0 },
+        medium: { x: 0, o: 0, ties: 0 },
+        hard: { x: 0, o: 0, ties: 0 }
+    },
+    online: { me: 0, opp: 0, ties: 0 }
 };
+
+// --- DOM Elements ---
+const boardElement = document.getElementById('board');
+const statusElement = document.getElementById('status');
+const modeButtons = document.querySelectorAll('.mode-btn');
+const difficultySection = document.getElementById('difficulty-section');
+const gridSizeSection = document.getElementById('grid-size-section');
+
+// Selectors for specific button groups
+const difficultyBtns = document.querySelectorAll('#difficulty-section .difficulty-btn');
+const gridSizeBtns = document.querySelectorAll('#grid-size-section .difficulty-btn');
+
+const onlineLobby = document.getElementById('online-lobby');
+const roomCodeInput = document.getElementById('room-code-input');
+const createRoomBtn = document.getElementById('create-room-btn');
+const joinRoomBtn = document.getElementById('join-room-btn');
+const lobbyStatus = document.getElementById('lobby-status');
+
+// --- Initialization ---
+function init() {
+    setupEventListeners();
+    updateScoreDisplay(); // Show initial scores
+    createBoard(gridSize);
+    updateStatus("Player X's Turn");
+}
+
+// --- Event Listeners ---
+function setupEventListeners() {
+    // Mode Switching
+    modeButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            modeButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            setGameMode(btn.id.replace('-mode', ''));
+        });
+    });
+
+    // Difficulty Switching
+    difficultyBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            difficultyBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            difficulty = btn.id;
+            updateScoreDisplay();
+            resetGame();
+        });
+    });
+
+    // Grid Size Switching
+    gridSizeBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (isOnline) return; // Cant change size mid-online session easily
+            gridSizeBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            gridSize = parseInt(btn.dataset.size);
+            resetGame();
+        });
+    });
+
+    // Online Lobby
+    createRoomBtn.addEventListener('click', () => {
+        socket.emit('create_room', gridSize); // Send selected size
+    });
+
+    joinRoomBtn.addEventListener('click', () => {
+        const code = roomCodeInput.value.trim().toUpperCase();
+        if (code) socket.emit('join_room', code);
+    });
+
+    // Global Reset
+    window.resetGame = resetGame;
+}
+
+function setGameMode(mode) {
+    gameMode = mode;
+    isOnline = (mode === 'online');
+
+    // UI Visibility
+    difficultySection.classList.toggle('hidden', mode !== 'pvc');
+    onlineLobby.classList.toggle('hidden', mode !== 'online');
+
+    // Grid size is allowed in all modes, but managed differently in online
+    // We keep it visible generally.
+
+    document.getElementById('pvp-scores').classList.toggle('hidden', mode !== 'pvp');
+    document.getElementById('pvc-difficulty-score').classList.toggle('hidden', mode !== 'pvc');
+    document.getElementById('online-scores').classList.toggle('hidden', mode !== 'online');
+
+    if (mode === 'online') {
+        // Reset online UI state
+        document.getElementById('online-lobby').classList.remove('hidden');
+        document.getElementById('online-scores').classList.add('hidden');
+        lobbyStatus.textContent = "";
+    }
+
+    resetGame();
+}
+
+// --- Game Logic ---
+function createBoard(size) {
+    if (size) gridSize = size; // Update if provided (e.g. from server)
+
+    // Update CSS variable
+    document.documentElement.style.setProperty('--grid-size', gridSize);
+
+    board = Array(gridSize * gridSize).fill('');
+    boardElement.innerHTML = '';
+    gameActive = true;
+    currentPlayer = 'X';
+
+    for (let i = 0; i < board.length; i++) {
+        const cell = document.createElement('button');
+        cell.classList.add('cell');
+        cell.dataset.index = i;
+        cell.addEventListener('click', () => handleCellClick(i));
+        boardElement.appendChild(cell);
+    }
+}
+
+function handleCellClick(index) {
+    if (board[index] !== '' || !gameActive) return;
+
+    if (isOnline) {
+        if (currentPlayer !== myPlayerSymbol) return; // Not your turn
+        socket.emit('make_move', { roomCode, index, player: myPlayerSymbol });
+        return;
+    }
+
+    // Local Move
+    makeMove(index, currentPlayer);
+
+    if (!gameActive) return;
+
+    // AI Move
+    if (gameMode === 'pvc' && currentPlayer === 'O') {
+        setTimeout(makeComputerMove, 500);
+    }
+}
+
+function makeMove(index, player) {
+    board[index] = player;
+    const cell = boardElement.children[index];
+
+    // SVG X/O Logic
+    if (player === 'X') {
+        cell.innerHTML = `<svg viewBox="0 0 100 100"><line x1="20" y1="20" x2="80" y2="80" style="stroke:#667eea;stroke-width:10;stroke-linecap:round" /><line x1="80" y1="20" x2="20" y2="80" style="stroke:#667eea;stroke-width:10;stroke-linecap:round" /></svg>`;
+        cell.classList.add('x', 'taken');
+    } else {
+        cell.innerHTML = `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="30" style="fill:none;stroke:#764ba2;stroke-width:10" /></svg>`;
+        cell.classList.add('o', 'taken');
+    }
+
+    if (checkWin(player)) {
+        endGame(player);
+    } else if (!board.includes('')) {
+        endGame('draw');
+    } else {
+        currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+        if (isOnline) {
+            updateStatus(currentPlayer === myPlayerSymbol ? "Your Turn (X)" : "Opponent's Turn (O)");
+        } else {
+            updateStatus(`Player ${currentPlayer}'s Turn`);
+        }
+    }
+}
+
+function checkWin(player) {
+    const size = gridSize;
+    // Rows
+    for (let r = 0; r < size; r++) {
+        if (Array.from({ length: size }, (_, i) => board[r * size + i]).every(c => c === player)) return true;
+    }
+    // Cols
+    for (let c = 0; c < size; c++) {
+        if (Array.from({ length: size }, (_, i) => board[i * size + c]).every(c => c === player)) return true;
+    }
+    // Diag 1
+    if (Array.from({ length: size }, (_, i) => board[i * size + i]).every(c => c === player)) return true;
+    // Diag 2
+    if (Array.from({ length: size }, (_, i) => board[i * size + (size - 1 - i)]).every(c => c === player)) return true;
+
+    return false;
+}
+
+function endGame(winner) {
+    gameActive = false;
+    let message = "";
+
+    if (winner === 'draw') {
+        message = "It's a Draw!";
+        updateScores('draw');
+    } else {
+        message = `Player ${winner} Wins! 🎉`;
+        updateScores(winner);
+        highlightWin(winner);
+    }
+
+    updateStatus(message);
+    updateScoreDisplay();
+}
+
+function updateScores(winner) {
+    if (gameMode === 'pvp') {
+        if (winner === 'draw') scores.pvp.ties++;
+        else scores.pvp[winner.toLowerCase()]++;
+    } else if (gameMode === 'pvc') {
+        if (winner === 'draw') scores.pvc[difficulty].ties++;
+        else scores.pvc[difficulty][winner.toLowerCase()]++;
+    } else if (gameMode === 'online') {
+        // Online scoring logic
+        if (winner === 'draw') scores.online.ties++;
+        else if (winner === myPlayerSymbol) scores.online.me++;
+        else scores.online.opp++;
+    }
+    saveScores();
+}
+
+function updateScoreDisplay() {
+    // PvP
+    document.getElementById('pvp-x-score').textContent = scores.pvp.x;
+    document.getElementById('pvp-o-score').textContent = scores.pvp.o;
+    document.getElementById('pvp-tie-score').textContent = scores.pvp.ties;
+
+    // PvC
+    if (scores.pvc[difficulty]) {
+        document.getElementById('pvc-difficulty-x').textContent = scores.pvc[difficulty].x;
+        document.getElementById('pvc-difficulty-o').textContent = scores.pvc[difficulty].o;
+        document.getElementById('pvc-difficulty-tie').textContent = scores.pvc[difficulty].ties;
+        document.getElementById('difficulty-title').textContent = capitalize(difficulty);
+    }
+
+    // Online
+    document.getElementById('online-me-score').textContent = scores.online.me;
+    document.getElementById('online-opp-score').textContent = scores.online.opp;
+    document.getElementById('online-tie-score').textContent = scores.online.ties;
+}
+
+// --- AI Logic (Generic) ---
+function makeComputerMove() {
+    if (!gameActive) return;
+
+    // Win > Block > Center > Random
+    // Difficulty Variation:
+    // Easy: Random
+    // Medium: Block sometimes?
+    // Hard: Always Win/Block + Center
+
+    let move = -1;
+
+    if (difficulty === 'easy') {
+        move = getRandomMove();
+    } else if (difficulty === 'medium') {
+        // 50% chance to be smart
+        if (Math.random() > 0.5) move = getBestMove();
+        else move = getRandomMove();
+    } else {
+        move = getBestMove();
+    }
+
+    // Fallback if getBestMove returns nothing (e.g. board full, shouldn't happen)
+    if (move === -1 || board[move] !== '') move = getRandomMove();
+
+    makeMove(move, 'O');
+}
+
+function getBestMove() {
+    // 1. Check Win
+    for (let i = 0; i < board.length; i++) {
+        if (board[i] === '') {
+            board[i] = 'O';
+            if (checkWin('O')) { board[i] = ''; return i; }
+            board[i] = '';
+        }
+    }
+    // 2. Block Win
+    for (let i = 0; i < board.length; i++) {
+        if (board[i] === '') {
+            board[i] = 'X';
+            if (checkWin('X')) { board[i] = ''; return i; }
+            board[i] = '';
+        }
+    }
+    // 3. Center
+    const center = Math.floor((gridSize * gridSize) / 2);
+    if (board[center] === '') return center;
+
+    // 4. Random Priority
+    return getRandomMove();
+}
+
+function getRandomMove() {
+    const available = board.map((c, i) => c === '' ? i : null).filter(c => c !== null);
+    if (available.length === 0) return -1;
+    return available[Math.floor(Math.random() * available.length)];
+}
+
+// --- Socket Events ---
+socket.on('connect', () => {
+    console.log('Connected to server');
+});
+
+socket.on('room_created', (code) => {
+    roomCode = code;
+    myPlayerSymbol = 'X';
+    lobbyStatus.textContent = `Room Created! Code: ${code} (Size: ${gridSize}x${gridSize})`;
+    updateStatus(`Waiting for opponent... (Code: ${code})`);
+});
+
+socket.on('game_start', (data) => {
+    roomCode = data.roomCode;
+    // If I didn't create the room, I must be O
+    if (!myPlayerSymbol) myPlayerSymbol = 'O';
+
+    // IMPORTANT: Sync Grid Size
+    if (data.gridSize) {
+        gridSize = data.gridSize;
+        createBoard(gridSize);
+
+        // Update UI button state
+        gridSizeBtns.forEach(btn => {
+            btn.classList.toggle('active', parseInt(btn.dataset.size) === gridSize);
+        });
+    }
+
+    document.getElementById('online-lobby').classList.add('hidden');
+    document.getElementById('online-scores').classList.remove('hidden');
+
+    lobbyStatus.textContent = "";
+    updateStatus(myPlayerSymbol === 'X' ? "Your Turn (X)" : "Opponent's Turn (X)");
+    alert(`Game Started! You are Player ${myPlayerSymbol}`);
+});
+
+socket.on('move_made', (data) => {
+    makeMove(data.index, data.player);
+});
+
+socket.on('opponent_left', () => {
+    alert("Opponent Left!");
+    setGameMode('online'); // Reset to lobby
+});
+
+socket.on('game_restarted', () => {
+    createBoard(gridSize);
+    updateStatus(myPlayerSymbol === 'X' ? "Your Turn (X)" : "Opponent's Turn (X)");
+});
+
+socket.on('error_message', (msg) => alert(msg));
+
+// --- Helpers ---
+function resetGame() {
+    if (isOnline && roomCode) {
+        socket.emit('restart_request', roomCode);
+    } else {
+        createBoard(gridSize);
+        updateStatus("Player X's Turn");
+    }
+}
+
+function highlightWin(player) {
+    const size = gridSize;
+    // Re-check to find winning line for highlight
+    // Rows
+    for (let r = 0; r < size; r++) {
+        let indices = Array.from({ length: size }, (_, i) => r * size + i);
+        if (indices.every(i => board[i] === player)) {
+            indices.forEach(i => boardElement.children[i].classList.add('winner'));
+            return;
+        }
+    }
+    // Cols
+    for (let c = 0; c < size; c++) {
+        let indices = Array.from({ length: size }, (_, i) => i * size + c);
+        if (indices.every(i => board[i] === player)) {
+            indices.forEach(i => boardElement.children[i].classList.add('winner'));
+            return;
+        }
+    }
+    // Diag 1
+    let d1 = Array.from({ length: size }, (_, i) => i * size + i);
+    if (d1.every(i => board[i] === player)) {
+        d1.forEach(i => boardElement.children[i].classList.add('winner'));
+        return;
+    }
+    // Diag 2
+    let d2 = Array.from({ length: size }, (_, i) => i * size + (size - 1 - i));
+    if (d2.every(i => board[i] === player)) {
+        d2.forEach(i => boardElement.children[i].classList.add('winner'));
+        return;
+    }
+}
 
 function saveScores() {
     localStorage.setItem('ttto_scores', JSON.stringify(scores));
 }
 
-let board = ['', '', '', '', '', '', '', '', ''];
-let currentPlayer = 'X';
-let gameActive = true;
-let gameMode = 'pvp';
-let computerDifficulty = 'medium';
-let moveHistory = [];
-
-// Online Mode Variables
-const socket = io();
-let roomCode = null;
-let myPlayerSymbol = null; // 'X' or 'O'
-let isOnline = false;
-let onlineScores = { me: 0, opponent: 0, tie: 0 };
-
-const winConditions = [
-    [0, 1, 2], [3, 4, 5], [6, 7, 8],
-    [0, 3, 6], [1, 4, 7], [2, 5, 8],
-    [0, 4, 8], [2, 4, 6]
-];
-
-// Wait for DOM to be ready
-document.addEventListener('DOMContentLoaded', () => {
-    const cells = document.querySelectorAll('.cell');
-    const status = document.getElementById('status');
-
-    // Make resetGame available globally for the onclick handler in HTML
-    window.resetGame = resetGame;
-
-    // --- NEW STATUS UPDATE FUNCTION ---
-    // Helper to update status text and trigger animation
-    function updateStatus(newText) {
-        status.textContent = newText;
-        status.classList.add('status-change');
-        // Remove class after animation to allow re-triggering
-        setTimeout(() => {
-            status.classList.remove('status-change');
-        }, 300);
-    }
-
-    // --- MODE SWITCHING ---
-    document.getElementById('pvp-mode').addEventListener('click', () => {
-        switchMode('pvp');
-    });
-
-    document.getElementById('pvc-mode').addEventListener('click', () => {
-        switchMode('pvc');
-    });
-
-    document.getElementById('online-mode').addEventListener('click', () => {
-        switchMode('online');
-    });
-
-    function switchMode(mode) {
-        gameMode = mode;
-        isOnline = (mode === 'online');
-
-        // Reset active classes
-        document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
-        document.getElementById(`${mode}-mode`).classList.add('active');
-
-        // Hide all sections first
-        document.getElementById('difficulty-section').classList.add('hidden');
-        document.getElementById('pvp-scores').classList.add('hidden');
-        document.getElementById('pvc-difficulty-score').classList.add('hidden');
-        document.getElementById('online-scores').classList.add('hidden');
-        document.getElementById('online-lobby').classList.add('hidden');
-
-        if (mode === 'pvp') {
-            document.getElementById('pvp-scores').classList.remove('hidden');
-            resetGame();
-        } else if (mode === 'pvc') {
-            document.getElementById('difficulty-section').classList.remove('hidden');
-            document.getElementById('pvc-difficulty-score').classList.remove('hidden');
-            computerDifficulty = 'medium';
-            document.getElementById('medium').classList.add('active');
-            updateScoreDisplay();
-            resetGame();
-        } else if (mode === 'online') {
-            document.getElementById('online-lobby').classList.remove('hidden');
-            updateStatus("Join or Create a Room");
-            // Don't reset game immediately, wait for connection
-        }
-    }
-
-    // --- ONLINE LOBBY HANDLERS ---
-    document.getElementById('create-room-btn').addEventListener('click', () => {
-        socket.emit('create_room');
-        document.getElementById('lobby-status').textContent = "Creating room...";
-    });
-
-    document.getElementById('join-room-btn').addEventListener('click', () => {
-        const code = document.getElementById('room-code-input').value.toUpperCase();
-        if (code.length === 4) {
-            socket.emit('join_room', code);
-            document.getElementById('lobby-status').textContent = "Joining room...";
-        } else {
-            document.getElementById('lobby-status').textContent = "Invalid Code";
-        }
-    });
-
-    // --- SOCKET EVENTS ---
-    socket.on('room_created', (code) => {
-        roomCode = code;
-        myPlayerSymbol = 'X';
-        document.getElementById('lobby-status').textContent = `Room Created! Code: ${code}. Waiting for opponent...`;
-        updateStatus(`Waiting for opponent... (Code: ${code})`);
-    });
-
-    socket.on('game_start', (data) => {
-        roomCode = data.roomCode;
-        // If I didn't create the room, I must be O
-        if (!myPlayerSymbol) myPlayerSymbol = 'O';
-
-        document.getElementById('online-lobby').classList.add('hidden');
-        document.getElementById('online-scores').classList.remove('hidden');
-        document.getElementById('lobby-status').textContent = "";
-        resetLocalBoard(); // Clear board locally
-        updateScoreDisplay(); // Show initial 0-0
-        updateStatus(myPlayerSymbol === 'X' ? "Your Turn (X)" : "Opponent's Turn (X)");
-        alert(`Game Started! You are Player ${myPlayerSymbol}`);
-    });
-
-    socket.on('move_made', (data) => {
-        makeMove(data.index, data.player);
-        moveHistory.push({ player: data.player, position: data.index });
-
-        if (checkWin()) {
-            endGame(data.player);
-            return;
-        }
-        if (checkTie()) {
-            endGame('tie');
-            return;
-        }
-
-        currentPlayer = data.nextTurn;
-        if (currentPlayer === myPlayerSymbol) {
-            updateStatus(`Your Turn (${myPlayerSymbol})`);
-        } else {
-            updateStatus(`Opponent's Turn (${currentPlayer})`);
-        }
-    });
-
-    socket.on('opponent_left', () => {
-        alert("Opponent disconnected!");
-        resetGame();
-        switchMode('online'); // Go back to lobby
-    });
-
-    socket.on('error_message', (msg) => {
-        document.getElementById('lobby-status').textContent = msg;
-    });
-
-
-    // --- DIFFICULTY HANDLERS ---
-    document.getElementById('easy').addEventListener('click', () => {
-        computerDifficulty = 'easy';
-        updateDifficultyUI('easy', 'Easy');
-    });
-
-    document.getElementById('medium').addEventListener('click', () => {
-        computerDifficulty = 'medium';
-        updateDifficultyUI('medium', 'Medium');
-    });
-
-    document.getElementById('hard').addEventListener('click', () => {
-        computerDifficulty = 'hard';
-        updateDifficultyUI('hard', 'Hard');
-    });
-
-    function updateDifficultyUI(level, title) {
-        document.querySelectorAll('.difficulty-btn').forEach(btn => btn.classList.remove('active'));
-        document.getElementById(level).classList.add('active');
-        document.getElementById('difficulty-title').textContent = title;
-        updateScoreDisplay();
-    }
-
-    cells.forEach(cell => {
-        cell.addEventListener('click', handleCellClick);
-    });
-
-    function handleCellClick(e) {
-        const index = parseInt(e.target.closest('.cell').dataset.index);
-
-        // Check if move is valid
-        if (board[index] !== '' || !gameActive) {
-            if (gameActive) shakeCell(e.target.closest('.cell'));
-            return;
-        }
-
-        // Online Mode Validation
-        if (isOnline) {
-            if (currentPlayer !== myPlayerSymbol) {
-                updateStatus("Not your turn!");
-                return;
-            }
-            // Send move to server
-            socket.emit('make_move', { roomCode, index, player: myPlayerSymbol });
-            // We wait for server 'move_made' event to actually update UI
-            return;
-        }
-
-        // Local Mode Logic
-        makeMove(index, currentPlayer);
-        moveHistory.push({ player: currentPlayer, position: index });
-
-        if (checkWin()) {
-            endGame(currentPlayer);
-            return;
-        }
-
-        if (checkTie()) {
-            endGame('tie');
-            return;
-        }
-
-        currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
-
-        if (gameMode === 'pvc' && currentPlayer === 'O' && gameActive) {
-            updateStatus("Computer's Turn...");
-            setTimeout(makeComputerMove, 800);
-        } else {
-            updateStatus(`Player ${currentPlayer}'s Turn`);
-        }
-    }
-
-    function shakeCell(cell) {
-        cell.classList.add('shake');
-        setTimeout(() => cell.classList.remove('shake'), 400);
-    }
-
-    function endGame(winner) {
-        gameActive = false;
-        if (winner === 'tie') {
-            updateStatus("It's a Tie! 🤝");
-            if (!isOnline) {
-                if (gameMode === 'pvp') scores.pvp.tie++;
-                else scores.pvc[computerDifficulty].tie++;
-            }
-        } else {
-            updateStatus(`🎉 Player ${winner} Wins!`);
-            highlightWinningCells();
-            if (!isOnline) {
-                if (gameMode === 'pvp') scores.pvp[winner.toLowerCase()]++;
-                else scores.pvc[computerDifficulty][winner.toLowerCase()]++;
-            }
-        }
-
-        if (isOnline) {
-            if (winner === 'tie') {
-                onlineScores.tie++;
-            } else if (winner === myPlayerSymbol) {
-                onlineScores.me++;
-            } else {
-                onlineScores.opponent++;
-            }
-            updateScoreDisplay();
-        } else {
-            saveScores();
-            updateScoreDisplay();
-        }
-    }
-
-    function makeMove(index, player) {
-        board[index] = player;
-        if (player === 'X') {
-            cells[index].innerHTML = X_SVG;
-        } else {
-            cells[index].innerHTML = O_SVG;
-        }
-        cells[index].classList.add('taken', player.toLowerCase());
-    }
-
-    function makeComputerMove() {
-        if (!gameActive) return;
-        let moveIndex;
-        switch (computerDifficulty) {
-            case 'easy':
-                moveIndex = getRandomMove();
-                break;
-            case 'medium':
-                moveIndex = Math.random() > 0.5 ? getSmartMove() : getRandomMove();
-                break;
-            case 'hard':
-                moveIndex = getHardMove();
-                break;
-        }
-        makeMove(moveIndex, 'O');
-        moveHistory.push({ player: 'O', position: moveIndex });
-
-        if (checkWin()) {
-            endGame('O');
-            return;
-        }
-
-        if (checkTie()) {
-            endGame('tie');
-            return;
-        }
-
-        currentPlayer = 'X';
-        updateStatus(`Player ${currentPlayer}'s Turn`);
-    }
-
-    function getRandomMove() {
-        const availableMoves = board
-            .map((cell, index) => cell === '' ? index : null)
-            .filter(index => index !== null);
-        const randomIndex = Math.floor(Math.random() * availableMoves.length);
-        return availableMoves[randomIndex];
-    }
-
-    function getHardMove() {
-        const computerMoves = moveHistory.filter(m => m.player === 'O').length;
-        const playerMoves = moveHistory.filter(m => m.player === 'X');
-
-        if (computerMoves === 0 && playerMoves.length === 1) {
-            const firstMove = playerMoves[0].position;
-            const corners = [0, 2, 6, 8];
-            if (corners.includes(firstMove) && board[4] === '') {
-                return 4;
-            }
-        }
-
-        if (computerMoves === 1 && playerMoves.length === 2) {
-            const firstMove = playerMoves[0].position;
-            const secondMove = playerMoves[1].position;
-            const corners = [0, 2, 6, 8];
-
-            if (corners.includes(firstMove) && corners.includes(secondMove)) {
-                if ((firstMove === 0 && secondMove === 8) || (firstMove === 8 && secondMove === 0) ||
-                    (firstMove === 2 && secondMove === 6) || (firstMove === 6 && secondMove === 2)) {
-                    const sides = [1, 3, 5, 7];
-                    const availableSides = sides.filter(index => board[index] === '');
-                    if (availableSides.length > 0) {
-                        return availableSides[Math.floor(Math.random() * availableSides.length)];
-                    }
-                }
-            }
-        }
-
-        return getSmartMove();
-    }
-
-    function getSmartMove() {
-        for (const condition of winConditions) {
-            const [a, b, c] = condition;
-            if (board[a] === 'O' && board[b] === 'O' && board[c] === '') return c;
-            if (board[a] === 'O' && board[c] === 'O' && board[b] === '') return b;
-            if (board[b] === 'O' && board[c] === 'O' && board[a] === '') return a;
-        }
-        for (const condition of winConditions) {
-            const [a, b, c] = condition;
-            if (board[a] === 'X' && board[b] === 'X' && board[c] === '') return c;
-            if (board[a] === 'X' && board[c] === 'X' && board[b] === '') return b;
-            if (board[b] === 'X' && board[c] === 'X' && board[a] === '') return a;
-        }
-        if (board[4] === '') return 4;
-        const corners = [0, 2, 6, 8];
-        const availableCorners = corners.filter(index => board[index] === '');
-        if (availableCorners.length > 0) {
-            return availableCorners[Math.floor(Math.random() * availableCorners.length)];
-        }
-        const sides = [1, 3, 5, 7];
-        const availableSides = sides.filter(index => board[index] === '');
-        if (availableSides.length > 0) {
-            return availableSides[Math.floor(Math.random() * availableSides.length)];
-        }
-        return getRandomMove();
-    }
-
-    function checkWin() {
-        return winConditions.some(condition => {
-            return condition.every(index => {
-                return board[index] === currentPlayer;
-            });
-        });
-    }
-
-    function checkTie() {
-        return board.every(cell => cell !== '');
-    }
-
-    function highlightWinningCells() {
-        winConditions.forEach(condition => {
-            if (condition.every(index => board[index] === currentPlayer)) {
-                condition.forEach(index => {
-                    cells[index].classList.add('winner');
-                });
-            }
-        });
-    }
-
-    function updateScoreDisplay() {
-        document.getElementById('pvp-x-score').textContent = scores.pvp.x;
-        document.getElementById('pvp-o-score').textContent = scores.pvp.o;
-        document.getElementById('pvp-tie-score').textContent = scores.pvp.tie;
-        document.getElementById('pvc-difficulty-x').textContent = scores.pvc[computerDifficulty].x;
-        document.getElementById('pvc-difficulty-o').textContent = scores.pvc[computerDifficulty].o;
-        document.getElementById('pvc-difficulty-tie').textContent = scores.pvc[computerDifficulty].tie;
-
-        // Online Scores
-        document.getElementById('online-me-score').textContent = onlineScores.me;
-        document.getElementById('online-opp-score').textContent = onlineScores.opponent;
-        document.getElementById('online-tie-score').textContent = onlineScores.tie;
-    }
-
-    socket.on('game_restarted', () => {
-        resetLocalBoard();
-        updateStatus(myPlayerSymbol === 'X' ? "Your Turn (X)" : "Opponent's Turn (X)");
-        alert("Game Restarted!");
-    });
-
-
-
-    function resetGame() {
-        if (isOnline) {
-            if (roomCode) {
-                socket.emit('restart_request', roomCode);
-            }
-            return;
-        }
-        resetLocalBoard();
-    }
-
-    function resetLocalBoard() {
-        board = ['', '', '', '', '', '', '', '', ''];
-        currentPlayer = 'X';
-        gameActive = true;
-        moveHistory = [];
-
-        if (gameMode === 'pvc') {
-            if (currentPlayer === 'X') {
-                updateStatus(`Player ${currentPlayer}'s Turn`);
-            } else {
-                updateStatus("Computer's Turn...");
-                setTimeout(makeComputerMove, 800);
-            }
-        } else if (gameMode === 'pvp') {
-            updateStatus(`Player ${currentPlayer}'s Turn`);
-        }
-
-        cells.forEach(cell => {
-            cell.innerHTML = '';
-            cell.classList.remove('taken', 'x', 'o', 'winner');
-        });
-    }
-
-    // Initialize the status on first load
-    updateStatus("Player X's Turn");
-});
-
+function updateStatus(msg) {
+    statusElement.textContent = msg;
+    statusElement.classList.remove('status-change');
+    void statusElement.offsetWidth; // Trigger reflow
+    statusElement.classList.add('status-change');
+}
+
+function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+// Start
+init();
