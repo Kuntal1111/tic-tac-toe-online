@@ -26,6 +26,8 @@ let scores = JSON.parse(localStorage.getItem('ttto_scores')) || {
     },
     online: { me: 0, opp: 0, ties: 0 }
 };
+// Force reset online scores (ephemeral)
+scores.online = { me: 0, opp: 0, ties: 0 };
 
 // --- DOM Elements ---
 const boardElement = document.getElementById('board');
@@ -128,25 +130,6 @@ function setGameMode(mode) {
     document.getElementById('pvp-scores').classList.toggle('hidden', mode !== 'pvp');
     document.getElementById('pvc-difficulty-score').classList.toggle('hidden', mode !== 'pvc');
     document.getElementById('online-scores').classList.toggle('hidden', mode !== 'online');
-
-    if (mode === 'online') {
-        // Reset online UI state
-        document.getElementById('online-lobby').classList.remove('hidden');
-        document.getElementById('online-scores').classList.add('hidden');
-        lobbyStatus.textContent = "";
-        // FIX: Clear room context so user can select grid size or join new room
-        roomCode = null;
-        myPlayerSymbol = null;
-    }
-
-    resetGame();
-}
-
-// --- Game Logic ---
-function createBoard(size) {
-    if (size) gridSize = size; // Update if provided (e.g. from server)
-
-    // Update CSS variable
     document.documentElement.style.setProperty('--grid-size', gridSize);
 
     board = Array(gridSize * gridSize).fill('');
@@ -436,7 +419,12 @@ function highlightWin(player) {
 }
 
 function saveScores() {
-    localStorage.setItem('ttto_scores', JSON.stringify(scores));
+    // Persist only PvP and PvC. Online scores are ephemeral.
+    const scoresToSave = {
+        ...scores,
+        online: { me: 0, opp: 0, ties: 0 }
+    };
+    localStorage.setItem('ttto_scores', JSON.stringify(scoresToSave));
 }
 
 function updateStatus(msg) {
