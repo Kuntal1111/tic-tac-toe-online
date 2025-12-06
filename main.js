@@ -87,8 +87,10 @@ function setupEventListeners() {
     // Grid Size Switching
     gridSizeBtns.forEach(btn => {
         btn.addEventListener('click', () => {
+            console.log('Grid Btn Clicked:', btn.dataset.size);
             // If in an active online room, request a grid change
             if (isOnline && roomCode) {
+                console.log('Sending online grid request');
                 socket.emit('request_grid_change', { roomCode, newSize: parseInt(btn.dataset.size) });
                 return;
             }
@@ -96,9 +98,15 @@ function setupEventListeners() {
             gridSizeBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             gridSize = parseInt(btn.dataset.size);
+            console.log('New Grid Size:', gridSize, 'isOnline:', isOnline, 'roomCode:', roomCode);
 
             // Only reset game if we are offline OR if we are in the lobby (no room code yet).
-            if (!isOnline || !roomCode) resetGame();
+            if (!isOnline || !roomCode) {
+                console.log('Calling resetGame()');
+                resetGame();
+            } else {
+                console.log('Skipping resetGame (Conditions not met)');
+            }
         });
     });
 
@@ -130,6 +138,31 @@ function setGameMode(mode) {
     document.getElementById('pvp-scores').classList.toggle('hidden', mode !== 'pvp');
     document.getElementById('pvc-difficulty-score').classList.toggle('hidden', mode !== 'pvc');
     document.getElementById('online-scores').classList.toggle('hidden', mode !== 'online');
+
+    if (mode === 'online') {
+        // Reset online UI state
+        document.getElementById('online-lobby').classList.remove('hidden');
+        document.getElementById('online-scores').classList.add('hidden');
+        lobbyStatus.textContent = "";
+        // FIX: Clear room context so user can select grid size or join new room
+        roomCode = null;
+        myPlayerSymbol = null;
+        resetOnlineScores();
+    }
+
+    resetGame();
+}
+
+function resetOnlineScores() {
+    scores.online = { me: 0, opp: 0, ties: 0 };
+    updateScoreDisplay();
+}
+
+// --- Game Logic ---
+function createBoard(size) {
+    if (size) gridSize = size; // Update if provided (e.g. from server)
+
+    // Update CSS variable
     document.documentElement.style.setProperty('--grid-size', gridSize);
 
     board = Array(gridSize * gridSize).fill('');
