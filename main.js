@@ -57,6 +57,14 @@ function setupEventListeners() {
     // Mode Switching
     modeButtons.forEach(btn => {
         btn.addEventListener('click', () => {
+            // Confirmation if leaving active room
+            if (isOnline && roomCode && !confirm("Disconnect from current room?")) {
+                return;
+            }
+            if (isOnline && roomCode) {
+                socket.emit('leave_room', roomCode);
+            }
+
             modeButtons.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             setGameMode(btn.id.replace('-mode', ''));
@@ -77,8 +85,11 @@ function setupEventListeners() {
     // Grid Size Switching
     gridSizeBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-            // Allow changing size if not online OR if online but not yet in a room (lobby)
-            if (isOnline && roomCode) return;
+            // If in an active online room, request a grid change
+            if (isOnline && roomCode) {
+                socket.emit('request_grid_change', { roomCode, newSize: parseInt(btn.dataset.size) });
+                return;
+            }
 
             gridSizeBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
@@ -392,7 +403,6 @@ function resetGame() {
 }
 
 function highlightWin(player) {
-    // ... highlight logic ...
     const size = gridSize;
     // Re-check to find winning line for highlight
     // Rows

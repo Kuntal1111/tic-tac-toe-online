@@ -89,6 +89,29 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('request_grid_change', ({ roomCode, newSize }) => {
+        const room = rooms[roomCode];
+        if (room) {
+            const size = parseInt(newSize) || 3;
+            room.gridSize = size;
+            room.board = Array(size * size).fill('');
+            room.turn = 'X'; // Reset turn
+            io.to(roomCode).emit('game_start', {
+                roomCode,
+                players: room.players,
+                gridSize: size
+            });
+        }
+    });
+
+    socket.on('leave_room', (roomCode) => {
+        const room = rooms[roomCode];
+        if (room) {
+            io.to(roomCode).emit('opponent_left');
+            delete rooms[roomCode];
+        }
+    });
+
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
         for (const code in rooms) {
